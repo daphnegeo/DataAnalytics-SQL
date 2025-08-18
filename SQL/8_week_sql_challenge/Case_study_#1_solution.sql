@@ -183,3 +183,22 @@ WHERE s.order_date < DATE '2021-02-01'   -- end of January
 GROUP BY s.customer_id
 ORDER BY s.customer_id;
 
+-- Bonus Question
+SELECT
+  s.customer_id,
+  s.order_date,
+  m.product_name,
+  m.price,
+	CASE
+    	WHEN mem.join_date IS NOT NULL AND s.order_date >= mem.join_date THEN 'Y'
+    	ELSE 'N'
+ 	END AS member
+FROM sales AS s
+JOIN menu AS m
+  ON s.product_id = m.product_id
+LEFT
+JOIN members AS mem
+  ON s.customer_id = mem.customer_id
+ORDER BY s.customer_id, s.order_date,m.price DESC
+;
+
