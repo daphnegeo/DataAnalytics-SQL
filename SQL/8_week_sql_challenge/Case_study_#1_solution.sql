@@ -192,7 +192,17 @@ SELECT
 	CASE
     	WHEN mem.join_date IS NOT NULL AND s.order_date >= mem.join_date THEN 'Y'
     	ELSE 'N'
- 	END AS member
+ 	END AS member,
+ 	CASE
+    WHEN mem.join_date IS NOT NULL AND s.order_date >= mem.join_date
+      THEN RANK() OVER (
+             PARTITION BY s.customer_id
+             ORDER BY
+               CASE WHEN s.order_date >= mem.join_date THEN s.order_date END ,
+               m.price
+           )
+    ELSE NULL
+  END AS ranking
 FROM sales AS s
 JOIN menu AS m
   ON s.product_id = m.product_id
@@ -201,4 +211,7 @@ JOIN members AS mem
   ON s.customer_id = mem.customer_id
 ORDER BY s.customer_id, s.order_date,m.price DESC
 ;
+
+
+
 
