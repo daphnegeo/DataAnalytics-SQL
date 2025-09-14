@@ -190,3 +190,76 @@ FROM runner_orders ro
 JOIN success_deliveries sd ON ro.runner_id = sd.runner_id
 GROUP BY ro.runner_id, sd.success_count
 ORDER BY ro.runner_id;
+
+-- C. Ingredient Optimisation
+
+-- 1. What are the standard ingredients for each pizza?
+SELECT topping_name
+FROM pizza_toppings
+WHERE topping_id IN (4, 6);
+
+-- 2. What was the most commonly added extra?
+SELECT 
+  pt.topping_name,
+  COUNT(*) AS times_added
+FROM (
+  SELECT UNNEST(string_to_array(extras, ', ')) AS extra
+  FROM customer_orders
+  WHERE extras IS NOT NULL AND extras != '' AND extras != 'null'
+) AS expanded_extras
+JOIN pizza_toppings pt ON pt.topping_id::TEXT = extra
+GROUP BY pt.topping_name
+ORDER BY times_added DESC
+LIMIT 1;
+
+-- 3. What was the most common exclusion?
+SELECT 
+  pt.topping_name,
+  COUNT(*) AS times_added
+FROM (
+  SELECT UNNEST(string_to_array(exclusions, ', ')) AS exclusions
+  FROM customer_orders
+  WHERE exclusions IS NOT NULL AND exclusions != '' AND exclusions != 'null'
+) AS expanded_exclusions
+JOIN pizza_toppings pt ON pt.topping_id::TEXT = exclusions
+GROUP BY pt.topping_name
+ORDER BY times_added DESC
+LIMIT 1;
+
+-- 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+
+WITH delivered_orders AS (
+  SELECT co.order_id, co.pizza_id, co.extras
+  FROM customer_orders co
+  JOIN runner_orders ro ON co.order_id = ro.order_id
+  WHERE ro.cancellation IS NULL OR ro.cancellation = '' OR ro.cancellation = 'null'
+),
+base_ingredients AS (
+  SELECT 
+    d.order_id,
+    pt.topping_name
+  FROM delivered_orders d
+  JOIN pizza_recipes pr ON d.pizza_id = pr.pizza_id
+  JOIN pizza_toppings pt 
+    ON pt.topping_id::TEXT = ANY(string_to_array(pr.toppings, ', '))
+),
+extra_ingredients AS (
+  SELECT 
+    d.order_id,
+    pt.topping_name
+  FROM delivered_orders d
+  JOIN pizza_toppings pt 
+    ON pt.topping_id::TEXT = ANY(string_to_array(d.extras, ', '))
+  WHERE d.extras IS NOT NULL AND d.extras != '' AND d.extras != 'null'
+),
+all_ingredients AS (
+  SELECT * FROM base_ingredients
+  UNION ALL
+  SELECT * FROM extra_ingredients
+)
+SELECT 
+  topping_name,
+  COUNT(*) AS total_used
+FROM all_ingredients
+GROUP BY topping_name
+ORDER BY total_used DESC;
